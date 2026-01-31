@@ -475,6 +475,16 @@
 
             // Render Results
             globalSearchStatus.textContent = `Búsqueda finalizada.`;
+            globalResultsContainer.classList.remove('hidden'); // ALWAYS SHOW CONTAINER
+
+            // Stats for debugging
+            const statsHtml = `
+                <div class="mb-4 text-xs text-slate-500 font-mono bg-slate-900/50 p-2 rounded border border-slate-800">
+                    <p>Scanned Projects: ${activeProjects.length}</p>
+                    <p>Errors: ${errors.length}</p>
+                    <p>Total Tasks Found: ${allTasks.length}</p>
+                </div>
+            `;
 
             // Show errors if any (Debug mode for user)
             let errorHtml = '';
@@ -489,13 +499,12 @@
                  `;
             }
 
-            globalResultsContainer.innerHTML = errorHtml;
+            globalResultsContainer.innerHTML = statsHtml + errorHtml;
 
             if (allTasks.length === 0) {
-                globalResultsContainer.innerHTML += `<div class="p-4 text-center text-slate-500 bg-slate-800/50 rounded-lg border border-slate-700">No se encontraron tareas pendientes para <strong>${responsible}</strong>.<br><small>Si esperabas ver tareas, revisa los errores de arriba.</small></div>`;
+                globalResultsContainer.innerHTML += `<div class="p-4 text-center text-slate-500 bg-slate-800/50 rounded-lg border border-slate-700">No se encontraron tareas pendientes para <strong>${responsible}</strong>.</div>`;
             } else {
                 globalSearchStatus.textContent = `Se encontraron ${allTasks.length} tareas asignadas a ${responsible}.`;
-                globalResultsContainer.classList.remove('hidden');
 
                 // Group by Project
                 const grouped = allTasks.reduce((acc, task) => {

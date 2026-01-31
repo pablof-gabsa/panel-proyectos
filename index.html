@@ -574,82 +574,93 @@
         });
 
         // --- GLOBAL EDIT MODAL LOGIC ---
-        const globalEditModal = document.getElementById('global-edit-overlay');
-        const globalEditForm = document.getElementById('global-edit-form');
-        const closeGlobalEditBtn = document.getElementById('close-global-edit-btn');
-        const cancelGlobalEditBtn = document.getElementById('cancel-global-edit');
+        document.addEventListener('DOMContentLoaded', () => {
+            const globalEditModal = document.getElementById('global-edit-overlay');
+            const globalEditForm = document.getElementById('global-edit-form');
+            const closeGlobalEditBtn = document.getElementById('close-global-edit-btn');
+            const cancelGlobalEditBtn = document.getElementById('cancel-global-edit');
 
-        // Close functions
-        const closeGlobalEdit = () => globalEditModal.classList.add('hidden');
-        if (closeGlobalEditBtn) closeGlobalEditBtn.addEventListener('click', closeGlobalEdit);
-        if (cancelGlobalEditBtn) cancelGlobalEditBtn.addEventListener('click', closeGlobalEdit);
+            // Close functions
+            const closeGlobalEdit = () => {
+                if (globalEditModal) globalEditModal.classList.add('hidden');
+            };
+            if (closeGlobalEditBtn) closeGlobalEditBtn.addEventListener('click', closeGlobalEdit);
+            if (cancelGlobalEditBtn) cancelGlobalEditBtn.addEventListener('click', closeGlobalEdit);
 
-        // Open Modal
-        window.openGlobalEditModal = (taskIndex) => {
-            const task = window.globalSearchResults[taskIndex];
-            if (!task) return;
+            // Open Modal (Global Scope)
+            window.openGlobalEditModal = (taskIndex) => {
+                const task = window.globalSearchResults[taskIndex];
+                if (!task) return;
 
-            document.getElementById('global-edit-project-name').textContent = task.projectName;
-            document.getElementById('global-edit-task-id').value = task.id;
-            document.getElementById('global-edit-project-path').value = task.projectPath;
-            document.getElementById('global-edit-project-id').value = task.projectName;
+                // Re-fetch in case DOM order issue persists
+                const modal = document.getElementById('global-edit-overlay');
+                if (!modal) return;
 
-            document.getElementById('global-edit-requerimiento').value = task.requerimiento || '';
-            document.getElementById('global-edit-estado').value = task.estado || 'Pendiente';
-            document.getElementById('global-edit-prioridad').value = task.prioridad || 'Media';
-            document.getElementById('global-edit-rubro').value = task.rubro || '';
-            document.getElementById('global-edit-responsable').value = task.responsable || '';
-            document.getElementById('global-edit-deadline').value = task.deadline || '';
+                document.getElementById('global-edit-project-name').textContent = task.projectName;
+                document.getElementById('global-edit-task-id').value = task.id;
+                document.getElementById('global-edit-project-path').value = task.projectPath;
+                document.getElementById('global-edit-project-id').value = task.projectName;
 
-            globalEditModal.classList.remove('hidden');
-        }
+                document.getElementById('global-edit-requerimiento').value = task.requerimiento || '';
+                document.getElementById('global-edit-estado').value = task.estado || 'Pendiente';
+                document.getElementById('global-edit-prioridad').value = task.prioridad || 'Media';
+                document.getElementById('global-edit-rubro').value = task.rubro || '';
+                document.getElementById('global-edit-responsable').value = task.responsable || '';
+                document.getElementById('global-edit-deadline').value = task.deadline || '';
 
-        // Save Logic
-        globalEditForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const taskId = document.getElementById('global-edit-task-id').value;
-            const projectName = document.getElementById('global-edit-project-id').value;
-
-            // Find the original task object to get the config
-            const task = window.globalSearchResults.find(t => t.id === taskId && t.projectName === projectName);
-            if (!task || !task.config) {
-                alert('Error crítico: No se encontró la configuración del proyecto.');
-                return;
+                modal.classList.remove('hidden');
             }
 
-            const updates = {
-                requerimiento: document.getElementById('global-edit-requerimiento').value,
-                estado: document.getElementById('global-edit-estado').value,
-                prioridad: document.getElementById('global-edit-prioridad').value,
-                rubro: document.getElementById('global-edit-rubro').value,
-                responsable: document.getElementById('global-edit-responsable').value,
-                deadline: document.getElementById('global-edit-deadline').value
-            };
+            // Save Logic
+            if (globalEditForm) {
+                globalEditForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const taskId = document.getElementById('global-edit-task-id').value;
+                    const projectName = document.getElementById('global-edit-project-id').value;
 
-            try {
-                // Initialize/Get App
-                let app = firebase.apps.find(a => a.name === projectName);
-                if (!app) {
-                    app = firebase.initializeApp(task.config, projectName);
-                }
+                    // Find the original task object to get the config
+                    const task = window.globalSearchResults.find(t => t.id === taskId && t.projectName === projectName);
+                    if (!task || !task.config) {
+                        alert('Error crítico: No se encontró la configuración del proyecto.');
+                        return;
+                    }
 
-                // Auth check (Anonymous)
-                if (!app.auth().currentUser) {
-                    await app.auth().signInAnonymously();
-                }
+                    const updates = {
+                        requerimiento: document.getElementById('global-edit-requerimiento').value,
+                        estado: document.getElementById('global-edit-estado').value,
+                        prioridad: document.getElementById('global-edit-prioridad').value,
+                        rubro: document.getElementById('global-edit-rubro').value,
+                        responsable: document.getElementById('global-edit-responsable').value,
+                        deadline: document.getElementById('global-edit-deadline').value
+                    };
 
-                // Update DB
-                await app.database().ref('tasks/' + taskId).update(updates);
+                    try {
+                        // Initialize/Get App
+                        let app = firebase.apps.find(a => a.name === projectName);
+                        if (!app) {
+                            app = firebase.initializeApp(task.config, projectName);
+                        }
 
-                alert('¡Tarea actualizada correctamente!');
-                closeGlobalEdit();
+                        // Auth check (Anonymous)
+                        if (!app.auth().currentUser) {
+                            await app.auth().signInAnonymously();
+                        }
 
-                // Refresh Search
-                document.getElementById('global-search-btn').click();
+                        // Update DB
+                        await app.database().ref('tasks/' + taskId).update(updates);
 
-            } catch (err) {
-                console.error(err);
-                alert('Error al guardar: ' + err.message);
+                        alert('¡Tarea actualizada correctamente!');
+                        closeGlobalEdit();
+
+                        // Refresh Search
+                        const searchBtn = document.getElementById('global-search-btn');
+                        if (searchBtn) searchBtn.click();
+
+                    } catch (err) {
+                        console.error(err);
+                        alert('Error al guardar: ' + err.message);
+                    }
+                });
             }
         });
 

@@ -7,6 +7,9 @@
     <title>Portfolio de Proyectos | Frixione</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -128,6 +131,44 @@
         <!-- Projects Grid -->
         <div id="projects-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             <!-- Cards will be injected here by JS -->
+        </div>
+
+        </div>
+
+        <!-- GLOBAL SEARCH SECTION -->
+        <div class="mt-16 border-t border-slate-800 pt-10">
+            <h2 class="text-2xl font-bold text-slate-200 mb-6 text-center">Búsqueda Global por Responsable</h2>
+            <div class="glass-panel p-6 rounded-2xl max-w-4xl mx-auto">
+                <div class="flex flex-col md:flex-row gap-4 items-end">
+                    <div class="w-full md:w-1/3">
+                        <label for="global-responsible-select"
+                            class="block text-sm font-medium text-slate-400 mb-2">Seleccionar Responsable</label>
+                        <select id="global-responsible-select"
+                            class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-lg py-2.5 px-4 focus:ring-2 focus:ring-brand-projects focus:border-transparent outline-none transition-all">
+                            <option value="Administrador">Administrador</option>
+                            <option value="Intendente">Intendente</option>
+                            <option value="Operadora">Operadora</option>
+                            <option value="Proveedor">Proveedor</option>
+                            <option value="RRHH">RRHH</option>
+                            <option value="Compras">Compras</option>
+                            <option value="Propietario">Propietario</option>
+                            <option value="Otros">Otros</option>
+                        </select>
+                    </div>
+                    <div class="w-full md:w-auto">
+                        <button id="global-search-btn"
+                            class="w-full md:w-auto bg-brand-projects hover:bg-blue-600 text-white font-bold py-2.5 px-6 rounded-lg transition-all shadow-lg hover:shadow-blue-500/30 flex items-center justify-center gap-2">
+                            <span>🔍 Buscar en Todos los Proyectos</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="global-search-status" class="mt-4 text-sm text-slate-400 hidden"></div>
+
+                <div id="global-results-container" class="mt-8 space-y-4 hidden">
+                    <!-- Results injected here -->
+                </div>
+            </div>
         </div>
 
         <!-- Empty State (Hidden by default) -->
@@ -313,6 +354,162 @@
         // Init
         loadProjects();
         renderProjects();
+
+        // --- GLOBAL SEARCH LOGIC ---
+        const globalSearchBtn = document.getElementById('global-search-btn');
+        const globalResponsibleSelect = document.getElementById('global-responsible-select');
+        const globalResultsContainer = document.getElementById('global-results-container');
+        const globalSearchStatus = document.getElementById('global-search-status');
+
+        globalSearchBtn.addEventListener('click', async () => {
+            // CHECK: Protocolo File
+            if (window.location.protocol === 'file:') {
+                globalResultsContainer.innerHTML = `
+                    <div class="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-yellow-200 text-left">
+                        <h3 class="font-bold text-lg mb-2">⚠️ Restricción de Seguridad del Navegador</h3>
+                        <p class="mb-2">La "Búsqueda Global" intenta leer los archivos de configuración de tus otros proyectos. Los navegadores modernos bloquean esta acción por seguridad cuando abres el archivo directamente desde tu escritorio (protocolo <code>file://</code>).</p>
+                        <p class="font-bold mt-4">Solución (Lo que preguntaste):</p>
+                        <ul class="list-disc pl-5 mt-1 space-y-1">
+                            <li><strong>SÍ, sube tu proyecto a GitHub Pages.</strong> Al estar en internet (http/https), esta función se activará automáticamente.</li>
+                            <li>O usa una extensión como "Live Server" en VS Code para probarlo localmente.</li>
+                        </ul>
+                    </div>
+                `;
+                globalResultsContainer.classList.remove('hidden');
+                return;
+            }
+
+            const responsible = globalResponsibleSelect.value;
+            globalResultsContainer.innerHTML = '';
+            globalResultsContainer.classList.add('hidden');
+            globalSearchStatus.textContent = `Buscando tareas para "${responsible}" en todos los proyectos...`;
+            globalSearchStatus.classList.remove('hidden');
+            globalSearchBtn.disabled = true;
+            globalSearchBtn.classList.add('opacity-50', 'cursor-not-allowed');
+
+            const allTasks = [];
+            const activeProjects = projects.filter(p => p.visible && p.id !== '00'); // Skip base template and hidden
+
+            // Helper to get config from HTML content
+            const extractConfig = (html) => {
+                const match = html.match(/const\s+firebaseConfig\s*=\s*({[\s\S]+?});/);
+                if (match && match[1]) {
+                    try {
+                        // Relaxed JSON parsing for JS object literal
+                        return eval('(' + match[1] + ')');
+                    } catch (e) { console.error("Error parsing config", e); return null; }
+                }
+                return null;
+            };
+
+            for (const project of activeProjects) {
+                try {
+                    globalSearchStatus.textContent = `Consultando ${project.name}...`;
+
+                    // 1. Fetch HTML to get Config
+                    const response = await fetch(project.path);
+                    const html = await response.text();
+                    const config = extractConfig(html);
+
+                    if (!config) {
+                        console.warn(`No Firebase config found for ${project.name}`);
+                        continue;
+                    }
+
+                    // 2. Initialize App (or use existing)
+                    let app;
+                    try {
+                        app = firebase.app(project.name);
+                    } catch (e) {
+                        app = firebase.initializeApp(config, project.name);
+                    }
+
+                    // 3. Query Database
+                    const snapshot = await app.database().ref('tasks').orderByChild('responsable').equalTo(responsible).once('value');
+                    const data = snapshot.val();
+
+                    if (data) {
+                        Object.keys(data).forEach(key => {
+                            const task = data[key];
+                            // Double check responsible (orderByChild sometimes fuzzy or if index missing)
+                            if (task.responsable === responsible) {
+                                allTasks.push({
+                                    ...task,
+                                    id: key,
+                                    projectName: project.name,
+                                    projectPath: project.path
+                                });
+                            }
+                        });
+                    }
+
+                } catch (err) {
+                    console.error(`Error processing ${project.name}:`, err);
+                }
+            }
+
+            // Render Results
+            globalSearchStatus.textContent = `Se encontraron ${allTasks.length} tareas asignadas a ${responsible}.`;
+            globalResultsContainer.classList.remove('hidden');
+
+            if (allTasks.length === 0) {
+                globalResultsContainer.innerHTML = `<div class="p-4 text-center text-slate-500 bg-slate-800/50 rounded-lg border border-slate-700">No se encontraron tareas pendientes para este responsable.</div>`;
+            } else {
+                // Group by Project
+                const grouped = allTasks.reduce((acc, task) => {
+                    (acc[task.projectName] = acc[task.projectName] || []).push(task);
+                    return acc;
+                }, {});
+
+                for (const [projectName, tasks] of Object.entries(grouped)) {
+                    const projectCard = document.createElement('div');
+                    projectCard.className = 'bg-slate-800 border border-slate-700 rounded-lg overflow-hidden';
+
+                    const header = document.createElement('div');
+                    header.className = 'bg-slate-700/50 px-4 py-2 border-b border-slate-700 flex justify-between items-center';
+                    header.innerHTML = `<h3 class="font-bold text-slate-200">${projectName}</h3><span class="text-xs font-mono bg-slate-900 px-2 py-1 rounded text-slate-400">${tasks.length} tareas</span>`;
+                    projectCard.appendChild(header);
+
+                    const list = document.createElement('ul');
+                    list.className = 'divide-y divide-slate-700/50';
+
+                    tasks.forEach(task => {
+                        const li = document.createElement('li');
+                        li.className = 'p-3 hover:bg-slate-700/30 transition-colors';
+                        const isOverdue = task.deadline && new Date(task.deadline) < new Date() && task.estado !== 'Realizado';
+                        li.innerHTML = `
+                            <div class="flex justify-between items-start gap-4">
+                                <div class="flex-1">
+                                    <p class="text-slate-300 font-medium text-sm">${task.requerimiento}</p>
+                                    <div class="flex flex-wrap gap-2 mt-2">
+                                        <span class="text-xs px-2 py-0.5 rounded border ${getStatusClasses(task.estado)}">${task.estado}</span>
+                                        <span class="text-xs px-2 py-0.5 rounded border text-slate-500 border-slate-600">${task.rubro}</span>
+                                        ${task.deadline ? `<span class="text-xs flex items-center gap-1 ${isOverdue ? 'text-red-400 font-bold' : 'text-slate-400'}">📅 ${task.deadline}</span>` : ''}
+                                    </div>
+                                </div>
+                                <a href="${task.projectPath}?source=dashboard" class="text-xs bg-blue-600/20 text-blue-400 hover:bg-blue-600 hover:text-white px-2 py-1 rounded transition-colors border border-blue-600/30">Ver</a>
+                            </div>
+                         `;
+                        list.appendChild(li);
+                    });
+                    projectCard.appendChild(list);
+                    globalResultsContainer.appendChild(projectCard);
+                }
+            }
+
+            globalSearchBtn.disabled = false;
+            globalSearchBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        });
+
+        function getStatusClasses(status) {
+            switch (status) {
+                case 'Pendiente': return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20';
+                case 'En Proceso': return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
+                case 'Realizado': return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
+                case 'Suspendido': return 'bg-slate-500/10 text-slate-500 border-slate-500/20';
+                default: return 'bg-slate-500/10 text-slate-500 border-slate-500/20';
+            }
+        }
 
     </script>
 </body>

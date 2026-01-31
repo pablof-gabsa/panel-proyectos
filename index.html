@@ -392,47 +392,71 @@
 
             // Helper to get config from HTML content
             const extractConfig = (html) => {
-                const match = html.match(/const\s+firebaseConfig\s*=\s*({[\s\S]+?});/);
+                // Regex improved: Optional semicolon, optional const/var/let
+                const match = html.match(/(?:const|var|let)\s+firebaseConfig\s*=\s*({[\s\S]+?})\s*;?/);
                 if (match && match[1]) {
                     try {
-                        // Relaxed JSON parsing for JS object literal
                         return eval('(' + match[1] + ')');
-                    } catch (e) { console.error("Error parsing config", e); return null; }
+                    } catch (e) {
+                        console.error("Error parsing config snippet:", match[1], e);
+                        return null;
+                    }
                 }
                 return null;
             };
 
+            let errors = [];
+
             for (const project of activeProjects) {
                 try {
-                    globalSearchStatus.textContent = `Consultando ${project.name}...`;
+                    globalSearchStatus.textContent = `Analizando ${project.name}...`;
 
-                    // 1. Fetch HTML to get Config
-                    const response = await fetch(project.path);
+                    // 1. Fetch HTML
+                    let response;
+                    try {
+                        response = await fetch(project.path);
+                    } catch (e) {
+                        errors.push(`${project.name}: No se pudo leer el archivo (Revisar ruta).`);
+                        continue;
+                    }
+
+                    if (!response.ok) {
+                        errors.push(`${project.name}: Error HTTP ${response.status}.`);
+                        continue;
+                    }
+
                     const html = await response.text();
                     const config = extractConfig(html);
 
                     if (!config) {
-                        console.warn(`No Firebase config found for ${project.name}`);
+                        errors.push(`${project.name}: No se encontró la configuración de Firebase.`);
                         continue;
                     }
 
-                    // 2. Initialize App (or use existing)
+                    // 2. Initialize App
                     let app;
                     try {
-                        app = firebase.app(project.name);
+                        // Use existing app if available to avoid "already exists" error
+                        app = firebase.apps.find(a => a.name === project.name);
+                        if (!app) {
+                            app = firebase.initializeApp(config, project.name);
+                        }
                     } catch (e) {
-                        app = firebase.initializeApp(config, project.name);
+                        // If still fails (e.g. config issue), log it
+                        errors.push(`${project.name}: Error inicializando Firebase.`);
+                        continue;
                     }
 
-                    // 3. Query Database
-                    const snapshot = await app.database().ref('tasks').orderByChild('responsable').equalTo(responsible).once('value');
+                    // 3. Query Database (FETCH ALL -> FILTER IN MEMORY)
+                    // Avoids 'Index not defined' issues
+                    const snapshot = await app.database().ref('tasks').once('value');
                     const data = snapshot.val();
 
                     if (data) {
                         Object.keys(data).forEach(key => {
                             const task = data[key];
-                            // Double check responsible (orderByChild sometimes fuzzy or if index missing)
-                            if (task.responsable === responsible) {
+                            // Robust filter
+                            if (task.responsable && task.responsable.trim() === responsible) {
                                 allTasks.push({
                                     ...task,
                                     id: key,
@@ -445,39 +469,60 @@
 
                 } catch (err) {
                     console.error(`Error processing ${project.name}:`, err);
+                    errors.push(`${project.name}: Error inesperado (${err.message}).`);
                 }
             }
 
             // Render Results
-            globalSearchStatus.textContent = `Se encontraron ${allTasks.length} tareas asignadas a ${responsible}.`;
-            globalResultsContainer.classList.remove('hidden');
+            globalSearchStatus.textContent = `Búsqueda finalizada.`;
+
+            // Show errors if any (Debug mode for user)
+            let errorHtml = '';
+            if (errors.length > 0) {
+                errorHtml = `
+                    <div class="mb-4 p-3 bg-red-900/20 border border-red-500/30 rounded text-xs text-red-300">
+                        <strong>Debug Info (Errores encontrados):</strong>
+                        <ul class="list-disc pl-4 mt-1">
+                            ${errors.map(e => `<li>${e}</li>`).join('')}
+                        </ul>
+                    </div>
+                 `;
+            }
+
+            globalResultsContainer.innerHTML = errorHtml;
 
             if (allTasks.length === 0) {
-                globalResultsContainer.innerHTML = `<div class="p-4 text-center text-slate-500 bg-slate-800/50 rounded-lg border border-slate-700">No se encontraron tareas pendientes para este responsable.</div>`;
+                globalResultsContainer.innerHTML += `<div class="p-4 text-center text-slate-500 bg-slate-800/50 rounded-lg border border-slate-700">No se encontraron tareas pendientes para <strong>${responsible}</strong>.<br><small>Si esperabas ver tareas, revisa los errores de arriba.</small></div>`;
             } else {
-                // Group by Project
-                const grouped = allTasks.reduce((acc, task) => {
-                    (acc[task.projectName] = acc[task.projectName] || []).push(task);
-                    return acc;
-                }, {});
+                globalSearchStatus.textContent = `Se encontraron ${allTasks.length} tareas asignadas a ${responsible}.`;
+                globalResultsContainer.classList.remove('hidden');
 
-                for (const [projectName, tasks] of Object.entries(grouped)) {
-                    const projectCard = document.createElement('div');
-                    projectCard.className = 'bg-slate-800 border border-slate-700 rounded-lg overflow-hidden';
+                if (allTasks.length === 0) {
+                    globalResultsContainer.innerHTML = `<div class="p-4 text-center text-slate-500 bg-slate-800/50 rounded-lg border border-slate-700">No se encontraron tareas pendientes para este responsable.</div>`;
+                } else {
+                    // Group by Project
+                    const grouped = allTasks.reduce((acc, task) => {
+                        (acc[task.projectName] = acc[task.projectName] || []).push(task);
+                        return acc;
+                    }, {});
 
-                    const header = document.createElement('div');
-                    header.className = 'bg-slate-700/50 px-4 py-2 border-b border-slate-700 flex justify-between items-center';
-                    header.innerHTML = `<h3 class="font-bold text-slate-200">${projectName}</h3><span class="text-xs font-mono bg-slate-900 px-2 py-1 rounded text-slate-400">${tasks.length} tareas</span>`;
-                    projectCard.appendChild(header);
+                    for (const [projectName, tasks] of Object.entries(grouped)) {
+                        const projectCard = document.createElement('div');
+                        projectCard.className = 'bg-slate-800 border border-slate-700 rounded-lg overflow-hidden';
 
-                    const list = document.createElement('ul');
-                    list.className = 'divide-y divide-slate-700/50';
+                        const header = document.createElement('div');
+                        header.className = 'bg-slate-700/50 px-4 py-2 border-b border-slate-700 flex justify-between items-center';
+                        header.innerHTML = `<h3 class="font-bold text-slate-200">${projectName}</h3><span class="text-xs font-mono bg-slate-900 px-2 py-1 rounded text-slate-400">${tasks.length} tareas</span>`;
+                        projectCard.appendChild(header);
 
-                    tasks.forEach(task => {
-                        const li = document.createElement('li');
-                        li.className = 'p-3 hover:bg-slate-700/30 transition-colors';
-                        const isOverdue = task.deadline && new Date(task.deadline) < new Date() && task.estado !== 'Realizado';
-                        li.innerHTML = `
+                        const list = document.createElement('ul');
+                        list.className = 'divide-y divide-slate-700/50';
+
+                        tasks.forEach(task => {
+                            const li = document.createElement('li');
+                            li.className = 'p-3 hover:bg-slate-700/30 transition-colors';
+                            const isOverdue = task.deadline && new Date(task.deadline) < new Date() && task.estado !== 'Realizado';
+                            li.innerHTML = `
                             <div class="flex justify-between items-start gap-4">
                                 <div class="flex-1">
                                     <p class="text-slate-300 font-medium text-sm">${task.requerimiento}</p>
@@ -490,16 +535,16 @@
                                 <a href="${task.projectPath}?source=dashboard" class="text-xs bg-blue-600/20 text-blue-400 hover:bg-blue-600 hover:text-white px-2 py-1 rounded transition-colors border border-blue-600/30">Ver</a>
                             </div>
                          `;
-                        list.appendChild(li);
-                    });
-                    projectCard.appendChild(list);
-                    globalResultsContainer.appendChild(projectCard);
+                            list.appendChild(li);
+                        });
+                        projectCard.appendChild(list);
+                        globalResultsContainer.appendChild(projectCard);
+                    }
                 }
-            }
 
-            globalSearchBtn.disabled = false;
-            globalSearchBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-        });
+                globalSearchBtn.disabled = false;
+                globalSearchBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            });
 
         function getStatusClasses(status) {
             switch (status) {

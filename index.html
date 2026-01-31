@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfolio de Proyectos | Frixione</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            projects: '#3b82f6', // Azul brillante
+                            utilities: '#a855f7', // Violeta
+                            templates: '#10b981', // Verde
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            background-image:
+                radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.08) 0%, transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.08) 0%, transparent 25%);
+        }
+
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 40px -10px rgba(59, 130, 246, 0.3);
+            border-color: rgba(59, 130, 246, 0.5);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+
+        .hero-text-gradient {
+            background: linear-gradient(135deg, #60a5fa 0%, #c084fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
+</head>
+
+<body class="antialiased min-h-screen flex flex-col">
+
+    <!-- Navbar -->
+    <nav class="glass-panel sticky top-0 z-50 border-b border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-3">
+                    <div
+                        class="h-8 w-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">
+                        F</div>
+                    <span class="font-bold text-xl tracking-tight">Frixione<span
+                            class="font-light text-slate-400">Projects</span></span>
+                </div>
+
+                <div class="flex items-center gap-4">
+                    <!-- Admin Toggle -->
+                    <button id="admin-toggle" onclick="toggleAdminMode()"
+                        class="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                        title="Modificar Vista">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <header class="relative pt-20 pb-16 px-4 sm:px-6 lg:px-8 text-center max-w-5xl mx-auto">
+        <div
+            class="inline-flex items-center px-3 py-1 rounded-full border border-blue-500/30 bg-blue-500/10 text-blue-400 text-xs font-semibold uppercase tracking-wide mb-6">
+            Workspace Personal
+        </div>
+        <h1 class="text-5xl sm:text-6xl font-bold tracking-tight mb-6">
+            Gestiona tus <span class="hero-text-gradient">Proyectos</span> <br class="hidden sm:block" /> desde un solo
+            lugar.
+        </h1>
+        <div id="admin-banner"
+            class="hidden max-w-md mx-auto mb-6 bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3 text-yellow-500 text-sm">
+            <span class="font-bold">MODO EDICIÓN ACTIVO:</span> Oculta o muestra proyectos usando los interruptores en
+            las tarjetas.
+        </div>
+        <p class="mt-4 text-xl text-slate-400 max-w-2xl mx-auto">
+            Acceso centralizado a todos tus checklists interactivos, utilidades y plantillas de trabajo.
+        </p>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
+
+        <!-- Projects Grid -->
+        <div id="projects-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <!-- Cards will be injected here by JS -->
+        </div>
+
+        <!-- Empty State (Hidden by default) -->
+        <div id="empty-state" class="hidden text-center py-20">
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-800 mb-4">
+                <svg class="w-8 h-8 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+            </div>
+            <h3 class="text-lg font-medium text-slate-300">No se encontraron proyectos</h3>
+            <p class="mt-2 text-slate-500">Intenta cambiar los filtros de búsqueda.</p>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800 bg-slate-900/50 py-8 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 text-center">
+            <p class="text-slate-500 text-sm">© 2026 Sistema de Gestión Personal. Todos los derechos reservados.</p>
+        </div>
+    </footer>
+
+    <script>
+        // CONFIGURACIÓN DE PROYECTOS INICIAL
+        const defaultProjects = [
+            { id: '00', name: 'Base Template', path: './00 base/index.html', description: 'Plantilla maestra para iniciar nuevos desarrollos.', icon: '📁' },
+            { id: '01', name: 'Santa Isabel', path: './01 Santa isabel V5.0 UP/index.html', description: 'V5.0 UP - Gestión integral.', icon: '🏗️' },
+            { id: '02', name: 'Barrancas de Santa Maria', path: './02 Barrancas de Santa Maria v5.0 UP/index.html', description: 'V5.0 UP - Residencial.', icon: '🏡' },
+            { id: '03', name: 'Barrancas de San Jose', path: './03 Barrancas de San Jose v5.0 UP/index.html', description: 'V5.0 UP - Mantenimiento.', icon: '🏘️' },
+            { id: '04', name: 'Lirios', path: './04 Lirios v5.0 UP/index.html', description: 'V5.0 UP - Paisajismo.', icon: '🌺' },
+            { id: '05', name: 'Lagos del Norte', path: './05 Lagos del norte v5.0 UP/index.html', description: 'V5.0 UP - Obras hídricas.', icon: '🌊' },
+            { id: '06', name: 'La Posta Pilar', path: './06 La Posta Pilar v5.0 UP/index.html', description: 'V5.0 UP - Comercial.', icon: '📮' },
+            { id: '07', name: 'Altos de Campo Grande', path: './07 Altos de Campo Grande v5.0 UP/index.html', description: 'V5.0 UP - Urbanización.', icon: '⛰️' },
+            { id: '08', name: 'Parque Ind. Escobar', path: './08 Parque industrial Escobar v5.0 UP/index.html', description: 'V5.0 UP - Industrial.', icon: '🏭' },
+            { id: '09', name: 'Parque Ind. Pilar', path: './09 Parque industrial Pilar V5.0 UP/index.html', description: 'V5.0 UP - Logística.', icon: '🏭' },
+            { id: '10', name: 'Laguna del Sol', path: './10 Laguna del Sol v5.0 UP/index.html', description: 'V5.0 UP - Masterplan.', icon: '☀️' },
+            { id: '11', name: 'Club Privado Loma Verde', path: './11 Club Privado loma verde/index.html', description: 'Gestión de amenities.', icon: '⛳' },
+            { id: '99', name: 'Frixel Tools', path: './99 Frixel/index.html', description: 'Utilidades del sistema.', icon: '🔧' }
+        ];
+
+        // STATE MANAGER
+        let projects = [];
+        let isAdminMode = false;
+
+        // STORAGE KEYS
+        const VISIBILITY_KEY = 'frixione_projects_visibility_v1';
+
+        function loadProjects() {
+            // Load saved visibility
+            const savedVisibility = JSON.parse(localStorage.getItem(VISIBILITY_KEY)) || {};
+
+            projects = defaultProjects.map(p => {
+                // Default to true if not found in storage
+                const isVisible = savedVisibility.hasOwnProperty(p.id) ? savedVisibility[p.id] : true;
+                return { ...p, visible: isVisible };
+            });
+        }
+
+        function toggleProjectVisibility(id) {
+            const project = projects.find(p => p.id === id);
+            if (project) {
+                project.visible = !project.visible;
+                saveVisibilityState();
+                renderProjects();
+            }
+        }
+
+        function saveVisibilityState() {
+            const visibilityMap = {};
+            projects.forEach(p => visibilityMap[p.id] = p.visible);
+            localStorage.setItem(VISIBILITY_KEY, JSON.stringify(visibilityMap));
+        }
+
+        function toggleAdminMode() {
+            isAdminMode = !isAdminMode;
+
+            const btn = document.getElementById('admin-toggle');
+            const banner = document.getElementById('admin-banner');
+
+            if (isAdminMode) {
+                btn.classList.add('text-blue-400', 'bg-slate-800');
+                banner.classList.remove('hidden');
+            } else {
+                btn.classList.remove('text-blue-400', 'bg-slate-800');
+                banner.classList.add('hidden');
+            }
+            renderProjects();
+        }
+
+
+        // RENDER LOGIC
+        const grid = document.getElementById('projects-grid');
+        const emptyState = document.getElementById('empty-state');
+
+        function renderProjects() {
+            grid.innerHTML = '';
+
+            // SIMPLIFIED LOGIC:
+            // Admin Mode -> Show ALL projects
+            // Normal Mode -> Show ONLY VISIBLE projects
+            const projectsToShow = isAdminMode ? projects : projects.filter(p => p.visible);
+
+            if (projectsToShow.length === 0) {
+                grid.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            grid.classList.remove('hidden');
+            emptyState.classList.add('hidden');
+
+            projectsToShow.forEach((project, index) => {
+                const isHidden = !project.visible;
+                let opacityClass = '';
+
+                if (isAdminMode) {
+                    // Admin Mode: Static opacity, no animation preventing the "snap to 0" bug
+                    opacityClass = isHidden ? 'opacity-50 grayscale' : 'opacity-100';
+                } else {
+                    // Normal Mode: Entrance animation
+                    opacityClass = 'opacity-0 animate-fade-in-up';
+                }
+
+                const card = document.createElement('div');
+                card.className = `glass-panel rounded-2xl p-6 flex flex-col justify-between h-full transition-all duration-300 relative group ${opacityClass}`;
+
+                if (!isAdminMode) {
+                    card.classList.add('card-hover');
+                    card.style.animationDelay = `${index * 50}ms`;
+                    card.style.animationFillMode = 'forwards';
+                }
+
+                // Generic badge style since filters are removed
+                const badgeClass = 'bg-blue-500/10 text-blue-400 border-blue-500/20';
+                const badgeText = 'Proyecto';
+
+                // Toggle Switch HTML (Check visible only in admin mode)
+                const toggleSwitch = isAdminMode ? `
+                    <div class="absolute top-4 right-4 z-20" onclick="event.preventDefault(); toggleProjectVisibility('${project.id}')">
+                        <div class="relative inline-flex items-center cursor-pointer">
+                           <input type="checkbox" class="sr-only peer" ${project.visible ? 'checked' : ''}>
+                           <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                        </div>
+                    </div>
+                ` : '';
+
+                const content = `
+                     <div>
+                        <div class="flex justify-between items-start mb-4">
+                            <div class="w-12 h-12 rounded-xl bg-slate-800/50 flex items-center justify-center text-2xl border border-slate-700">
+                                ${project.icon}
+                            </div>
+                            <span class="mr-6 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${badgeClass}">
+                                ${badgeText}
+                            </span>
+                        </div>
+                        <h2 class="text-xl font-bold text-white mb-2 leading-tight ${!isAdminMode ? 'group-hover:text-blue-400' : ''} transition-colors">${project.name}</h2>
+                        <p class="text-slate-400 text-sm leading-relaxed">${project.description}</p>
+                        ${isAdminMode && !project.visible ? '<p class="mt-2 text-xs text-red-400 font-bold uppercase tracking-wider">Oculto</p>' : ''}
+                    </div>
+                `;
+
+                card.innerHTML = toggleSwitch + content;
+
+                // Make card clickable link only if NOT in admin mode
+                if (!isAdminMode) {
+                    card.style.cursor = 'pointer';
+                    card.onclick = () => window.location.href = `${project.path}?source=dashboard`;
+                }
+
+                grid.appendChild(card);
+            });
+        }
+
+        // Add CSS animation keyframes
+        const style = document.createElement('style');
+        style.innerHTML = `
+            @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+            .animate-fade-in-up { animation: fadeInUp 0.5s ease-out; }
+        `;
+        document.head.appendChild(style);
+
+        // Init
+        loadProjects();
+        renderProjects();
+
+    </script>
+</body>
+
+</html>

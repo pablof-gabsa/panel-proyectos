@@ -447,6 +447,16 @@
                         continue;
                     }
 
+                    // 2.5 Authenticate (Fix for Permission Denied)
+                    try {
+                        if (!app.auth().currentUser) {
+                            await app.auth().signInAnonymously();
+                        }
+                    } catch (authErr) {
+                        errors.push(`${project.name}: Error de autenticación (${authErr.message}).`);
+                        continue;
+                    }
+
                     // 3. Query Database (FETCH ALL -> FILTER IN MEMORY)
                     // Avoids 'Index not defined' issues
                     const snapshot = await app.database().ref('tasks').once('value');
